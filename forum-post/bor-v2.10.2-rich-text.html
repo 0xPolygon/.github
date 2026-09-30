@@ -1,0 +1,79 @@
+<!doctype html><html><head><meta charset="utf-8"><title>bor v2.10.2 forum post</title>
+<style>body{font-family:sans-serif;max-width:820px;margin:2em auto;line-height:1.5}pre{background:#f1f1f1;padding:8px}</style></head><body>
+<p>Hi Everyone,</p>
+<p>We have released bor <a href="https://github.com/0xPolygon/bor/releases/tag/v2.10.2">v2.10.2 stable</a> for Polygon Mainnet.</p>
+<p>v2.10.2 comes with two main features, pipelined state root computation for block import and WIT2 BP-signed witness announcements. Pipelined state root computation is disabled by default — if you would like to enable it, see the "Enabling pipelined state root computation" section below. WIT2 needs no flag and negotiates per connection, so mixed WIT1/WIT2 meshes work without a coordinated upgrade.</p>
+<p>This release is not a hardfork — there are no fork activation heights, chain config or genesis changes, no database schema change, and no resync is required.</p>
+<h2>Steps to upgrade bor</h2>
+<p><strong>Stop bor service</strong></p>
+<pre><code>sudo service bor stop</code></pre>
+<p><strong>Install Bor with a version tag, network name (mainnet), and node type (sentry, validator, or archive)</strong></p>
+<pre><code># Replace the node type
+curl -L https://raw.githubusercontent.com/0xPolygon/install/main/bor.sh | bash -s -- v2.10.2 &lt;network&gt; &lt;node_type&gt;</code></pre>
+<p><strong>Check bor version</strong></p>
+<pre><code>/usr/bin/bor version
+# It should print
+# Version: 2.10.2</code></pre>
+<p><strong>Restart bor service</strong></p>
+<pre><code>sudo service bor start</code></pre>
+<h2>Enabling pipelined state root computation (optional)</h2>
+<p>This feature is off by default. To turn it on, either pass the CLI flag:</p>
+<pre><code>bor server --pipeline.enable-import-src</code></pre>
+<p>or set it in <code>config.toml</code>:</p>
+<pre><code>[pipeline]
+  enable-import-src = true</code></pre>
+<p>The feature targets block import and sync, not block production.</p>
+<p>Validators running Clef must whitelist the new mimetype <code>application/x-bor-wit2-announce</code> for WIT2, otherwise the producer falls back to unsigned WIT1 announcements.</p>
+<h2>Release notes</h2>
+<p>This release contains new features and bug fixes on top of v2.10.1.</p>
+<h3>Highlights</h3>
+<p><strong>Pipelined state root computation for block import - <a href="https://github.com/0xPolygon/bor/pull/2180">#2180</a></strong></p>
+<p>Overlaps the state-root computation of block N with transaction execution of block N+1 during block import, improving sync and catch-up throughput. Targets import and sync, not block production. This feature is disabled by default. To enable it, either pass the CLI flag <code>bor server --pipeline.enable-import-src</code> or set <code>enable-import-src = true</code> under <code>[pipeline]</code> in <code>config.toml</code>.</p>
+<p><strong>WIT2: BP-signed witness announcements - <a href="https://github.com/0xPolygon/bor/pull/2208">#2208</a></strong></p>
+<p>Block producers now sign a commitment over each witness, so peers can verify and relay the announcement without executing the block first, and can serve the witness body before importing it. This cuts witness-propagation latency for stateless validators several hops from a producer.</p>
+<p>No flag or coordinated upgrade needed - the wit protocol negotiates per connection and mixed WIT1/WIT2 meshes work. A signed announcement isn't relayed past the first WIT1 hop, so upgrade each validator together with its sentries. Validators running Clef must whitelist the new mimetype <code>application/x-bor-wit2-announce</code>, or the producer falls back to unsigned WIT1 announcements.</p>
+<h3>Other changes</h3>
+<p><strong>Fixes</strong></p>
+<ul>
+<li>eth, eth/fetcher, eth/protocols/eth: retry dangling tx-fetch peers instead of excluding them forever - fixes sentries sitting with a near-empty mempool for hours after a restart (POS-3689) by @marcello33 in <a href="https://github.com/0xPolygon/bor/pull/2367">#2367</a></li>
+<li>consensus/bor: don't leak the live tracer into non-import system transactions - a node-wide live tracer (--vmtrace) was being fired from RPC goroutines via eth_simulateV1 and debug_trace* state regeneration by @nebojsa94 in <a href="https://github.com/0xPolygon/bor/pull/2353">#2353</a></li>
+<li>core/blockstm, core: exclude base-state-delegated senders from the BlockSTM v2 nonce pre-compute, where V2 and the serial processor could disagree; harden the witness parity harness by @cffls in <a href="https://github.com/0xPolygon/bor/pull/2383">#2383</a></li>
+<li>core, miner: fix nightly pipeline race failures by @pratikspatil024 in <a href="https://github.com/0xPolygon/bor/pull/2371">#2371</a></li>
+</ul>
+<p><strong>CI, build, and tests</strong></p>
+<ul>
+<li>Remove support for publishing images to Docker Hub by @0xsajal in <a href="https://github.com/0xPolygon/bor/pull/2372">#2372</a></li>
+<li>ci: add a pipeline-enabled kurtosis e2e leg (POS-3697) by @pratikspatil024 in <a href="https://github.com/0xPolygon/bor/pull/2368">#2368</a></li>
+<li>ci: run kurtosis E2E safely on fork PRs by @pratikspatil024 in <a href="https://github.com/0xPolygon/bor/pull/2380">#2380</a></li>
+<li>ci: bump kurtosis-pos pin and Actions versions in kurtosis workflows by @kamuikatsurgi in <a href="https://github.com/0xPolygon/bor/pull/2370">#2370</a></li>
+<li>ci: bump kurtosis-pos pin to v1.4.2 by @marcello33 in <a href="https://github.com/0xPolygon/bor/pull/2377">#2377</a></li>
+<li>tests/bor: harden test peering against simultaneous-connect collisions by @pratikspatil024 in <a href="https://github.com/0xPolygon/bor/pull/2369">#2369</a></li>
+<li>build: increase race-test package timeout by @pratikspatil024 in <a href="https://github.com/0xPolygon/bor/pull/2378">#2378</a></li>
+<li>eth: avoid a race in relay-fetch test setup by @pratikspatil024 in <a href="https://github.com/0xPolygon/bor/pull/2387">#2387</a></li>
+<li>chore(ci): upgrade to codegenie@v0.5.6 by @0xPolygonBot in <a href="https://github.com/0xPolygon/bor/pull/2379">#2379</a></li>
+<li>v2.10.1 back-merge to master by @pratikspatil024 in <a href="https://github.com/0xPolygon/bor/pull/2390">#2390</a></li>
+</ul>
+<p><strong>Dependencies</strong></p>
+<ul>
+<li>Bump github.com/pion/dtls/v3 from 3.0.11 to 3.1.4 by @dependabot in <a href="https://github.com/0xPolygon/bor/pull/2338">#2338</a></li>
+<li>Bump github.com/pion/stun/v3 from 3.1.1 to 3.1.5 by @dependabot in <a href="https://github.com/0xPolygon/bor/pull/2339">#2339</a></li>
+<li>Bump github.com/rabbitmq/amqp091-go from 1.10.0 to 1.13.0 by @dependabot in <a href="https://github.com/0xPolygon/bor/pull/2384">#2384</a></li>
+<li>Bump google.golang.org/grpc from 1.79.3 to 1.83.1 by @dependabot in <a href="https://github.com/0xPolygon/bor/pull/2381">#2381</a></li>
+</ul>
+<h3>Upgrade notes</h3>
+<p>No hardfork, no resync, backwards compatible. <a href="https://github.com/0xPolygon/bor/pull/2180">#2180</a> is off by default and <a href="https://github.com/0xPolygon/bor/pull/2208">#2208</a> negotiates per connection with WIT1 peers.</p>
+<p>Docker Hub images are gone. Image publishing to Docker Hub was removed in <a href="https://github.com/0xPolygon/bor/pull/2372">#2372</a> ahead of the 1 September 2026 sunset - pull from GHCR instead. See the <a href="https://forum.polygon.technology/t/announcement-ghcr-images-and-docker-sunset/22022">GHCR announcement</a>.</p>
+<h3>New Contributors</h3>
+<ul>
+<li>@0xPolygonBot made their first contribution in <a href="https://github.com/0xPolygon/bor/pull/2379">#2379</a></li>
+<li>@nebojsa94 made their first contribution in <a href="https://github.com/0xPolygon/bor/pull/2353">#2353</a></li>
+</ul>
+<h3>What's Changed</h3>
+<p>Full changelog: <a href="https://github.com/0xPolygon/bor/compare/v2.10.1...v2.10.2">Comparing v2.10.1...v2.10.2</a></p>
+<h3>Docker Images</h3>
+<p>Docker Hub is no longer used. Image publishing to Docker Hub was removed ahead of its 1 September 2026 sunset. Pull images from GitHub Container Registry (GHCR) instead:</p>
+<pre><code>docker pull ghcr.io/0xpolygon/bor:v2.10.2</code></pre>
+<p>Bor images: <a href="https://github.com/0xPolygon/bor/pkgs/container/bor">GitHub Container Registry</a></p>
+<p>Images are published for linux/amd64 and linux/arm64 with build provenance attestation.</p>
+<p>Thanks,<br>Polygon Team</p>
+</body></html>
